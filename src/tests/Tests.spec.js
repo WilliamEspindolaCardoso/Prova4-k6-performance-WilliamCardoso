@@ -4,19 +4,21 @@ import http from 'k6/http';
 import { check } from 'k6';
 import { Trend, Rate } from 'k6/metrics';
 
-export const getContactsDuration = new Trend('get_contacts', true);
-export const RateContentOK = new Rate('content_OK');
+export const getDurationTrend = new Trend('get_duration', true);
+export const statusOKRate = new Rate('status_ok'); // nome da métrica atualizado
 
 export const options = {
   thresholds: {
-    http_req_failed: ['rate<0.30'],
-    get_contacts: ['p(99)<500'],
-    content_OK: ['rate>0.95']
+    http_req_failed: ['rate<0.25'], // < 25% erro
+    http_req_duration: ['p(99)<6800'], // 99% < 6800ms
+    get_duration: ['p(95)<6800'], // trend
+    status_ok: ['rate>0.75'] // métrica RATE corrigida
   },
   stages: [
-    { duration: '3s', target: 2 },
-    { duration: '3s', target: 6 },
-    { duration: '3s', target: 9 }
+    { duration: '30s', target: 5 },
+    { duration: '30s', target: 20 },
+    { duration: '60s', target: 50 },
+    { duration: '90s', target: 92 }
   ]
 };
 
@@ -28,7 +30,7 @@ export function handleSummary(data) {
 }
 
 export default function () {
-  const baseUrl = 'https://test.k6.io/';
+  const baseUrl = 'https://jsonplaceholder.typicode.com/posts';
 
   const params = {
     headers: {
@@ -40,11 +42,11 @@ export default function () {
 
   const res = http.get(`${baseUrl}`, params);
 
-  getContactsDuration.add(res.timings.duration);
+  getDurationTrend.add(res.timings.duration);
 
-  RateContentOK.add(res.status === OK);
+  statusOKRate.add(res.status === OK); // métrica RATE correta
 
   check(res, {
-    'GET Contacts - Status 200': () => res.status === OK
+    'GET Status 200': () => res.status === OK
   });
 }
